@@ -1,31 +1,33 @@
-//Course Title:  VM250 Design and Manufacture I
-//Project Title:  Katyusha
-//Date last updated: 7/22/2020
+// Course Title:  VM250 Design and Manufacture I
+// Project Title:  Katyusha
+// Date last updated: 7/31/2020
 //
-
 /*
   Port connection: D -- digital use
                    P -- PWM use
                    
   Arduino 3.3v -> PS2 3.3v
-  Arduino D09 -> PS2 DATA
-  Arduino D10 -> PS2 CS
-  Arduino D11 -> PS2 COMMAND
-  Arduino D12 -> PS2 CLOCK
+  Arduino D14 -> PS2 DATA
+  Arduino D15 -> PS2 CS
+  Arduino D16 -> PS2 COMMAND
+  Arduino D17 -> PS2 CLOCK
   
   Arduino D7  -> L298N EN1
   Arduino D8  -> L298N EN2 
-  Arduino D6  -> L298N EN3
-  Arduino D5  -> L298N EN4
+  Arduino D4  -> L298N EN3
+  Arduino D2  -> L298N EN4
   Arduino P6  -> L298N ENA
   Arduino P3  -> L298N ENB
   Arduino P9  -> Servo 1 PWM
+  Arduino P10 -> Servo 2 PWM
+  
 */
 
 #include<PS2X_lib.h>
+#include<Stepper.h>
 #include<Servo.h>
 
-#define PS2_DAT       14
+#define PS2_DAT       14          //Define the port #
 #define PS2_CMD       16
 #define PS2_CS        15
 #define PS2_CLK       17
@@ -37,23 +39,24 @@
 #define R_PWM         3   
 #define servo1        9
 #define servo2        10
-
+#define pul           5
+#define dir           11
 
 #define pressures     false
 #define rumble        false
 
 PS2X ps2x; // create PS2 Controller class
 
-Servo trigger1;
+Servo trigger1;   //trigger motor that drive the main gear
 Servo trigger2;
-Servo loader;
+
 
 int LstickY=0;
 int LstickX=0;
 int RstickY=0;
 int RstickX=0;
 
-
+int delayTime=2000;
 
 
 void setup() {
@@ -68,28 +71,35 @@ void setup() {
   pinMode(RMOTOR1,OUTPUT);
   pinMode(RMOTOR2,OUTPUT);
   pinMode(L_PWM,OUTPUT);
+  pinMode(pul,OUTPUT);
+  pinMode(dir,OUTPUT);
 
-  trigger1.attach(servo1);
+  trigger1.attach(servo1);  //Setup the 360-degree trigger motor
   trigger2.attach(servo2);
-  trigger1.write(90);
-  trigger2.write(90);
+  
+  
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
   ps2x.read_gamepad(false, 0);
   
-  LstickY=ps2x.Analog(PSS_LY);
+  LstickY=ps2x.Analog(PSS_LY);     //Read the analog value of sticks
   LstickX=ps2x.Analog(PSS_LX);
   RstickY=ps2x.Analog(PSS_RY);
   RstickX=ps2x.Analog(PSS_RX);
   
+  trigger1.writeMicroseconds(1500);
+  trigger2.writeMicroseconds(1500);
+
+  if (ps2x.Button(PSB_CIRCLE)){turn(200);}
+  else if(ps2x.Button(PSB_CROSS)){turn(-400);}// Controll the stepper motor for reloading
+
   
-  
-  if(ps2x.Button(PSB_TRIANGLE)){
+  if(ps2x.Button(PSB_TRIANGLE)){        //Press Triangle to rotate the servo
     Serial.println("Triangle just pressed");
     trigger1.write(120);
-    trigger2.write(120);
+    trigger2.write(60);
    }
    else{trigger1.write(90);trigger2.write(90);}
   if(ps2x.Button(PSB_L1)){                    // as long as L1 is pressed
@@ -103,8 +113,11 @@ void loop() {
       Serial.println(ps2x.Analog(PSS_RX), DEC);
      
   }
+  
+  //****************Motion Function Part*************************
+  //
   if(LstickY<100 ){
-    Serial.println("Left foward");
+    Serial.println("Left foward");  
     digitalWrite(LMOTOR1,HIGH);
     digitalWrite(LMOTOR2,LOW);
     analogWrite(L_PWM,200);
@@ -136,8 +149,22 @@ void loop() {
     digitalWrite(RMOTOR1,LOW);
     digitalWrite(RMOTOR2,LOW);
     }
+//
+//************************************************************
+delay(50);
 
 
-
-  delay(50);
 }
+
+void turn(int count){
+  if (count >0){digitalWrite(dir,LOW);}
+  else {digitalWrite(dir,HIGH);
+        count=-count;
+  }
+  for (int i=0;i<count;i++){
+    digitalWrite(pul,HIGH);
+    delayMicroseconds(800);
+    digitalWrite(pul,LOW);
+    delayMicroseconds(800);
+    }
+  }
